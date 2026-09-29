@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+  # Ingesta programada (completa 06:30 y 14:30, rápida cada 3 h). Comparte la BD SQLite con 'web'.
+  worker:
+    build: .
+    command: ["python", "-m", "app.scheduler"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  data:

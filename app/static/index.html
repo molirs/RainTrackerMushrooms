@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar de lluvias para setas</title>
+  <link rel="icon" href="/static/icono.ico">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header>
+      <h1>🍄 Radar de lluvias</h1>
+      <button id="toggle-panel" class="only-mobile" aria-label="Mostrar u ocultar filtros">Filtros ▾</button>
+    </header>
+
+    <div id="filters">
+      <section>
+        <div class="seg" role="tablist">
+          <button data-mode="acc" class="active" role="tab">Acumulado</button>
+          <button data-mode="day" role="tab">Día a día</button>
+        </div>
+
+        <div id="mode-acc">
+          <div class="seg small">
+            <button data-range="last" class="active">Últimos N días</button>
+            <button data-range="custom">Intervalo</button>
+          </div>
+          <div id="range-last">
+            <label>Días: <output id="days-out">7</output></label>
+            <input type="range" id="days" min="1" max="21" value="7">
+          </div>
+          <div id="range-custom" hidden>
+            <label>Desde <input type="date" id="date-from"></label>
+            <label>Hasta <input type="date" id="date-to"></label>
+          </div>
+        </div>
+
+        <div id="mode-day" hidden>
+          <label>Día: <output id="day-out"></output></label>
+          <div class="row">
+            <button id="play" aria-label="Reproducir">▶</button>
+            <input type="range" id="day" min="0" max="20" value="20">
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Provincias</h2>
+        <div id="provinces" class="chips"></div>
+      </section>
+
+      <section>
+        <h2>Altitud de la estación (m)</h2>
+        <div class="row">
+          <input type="number" id="alt-min" placeholder="mín" step="100" min="0">
+          <span>–</span>
+          <input type="number" id="alt-max" placeholder="máx" step="100" min="0">
+        </div>
+      </section>
+
+      <section>
+        <h2>Destacar desde <output id="thr-out">0</output> mm</h2>
+        <input type="range" id="threshold" min="0" max="100" step="5" value="0">
+      </section>
+
+      <section>
+        <h2>Fuentes</h2>
+        <div id="sources"></div>
+        <label class="check"><input type="checkbox" id="show-grid" checked> Capa estimada (Open-Meteo)</label>
+      </section>
+
+      <section>
+        <h2>Donde más ha llovido</h2>
+        <ol id="ranking"></ol>
+      </section>
+
+      <section>
+        <h2>Titularidad de los datos</h2>
+        <ul id="credits"></ul>
+      </section>
+    </div>
+  </aside>
+
+  <main>
+    <div id="map"></div>
+    <details id="legend" class="card" open></details>
+    <div id="detail" class="card" hidden>
+      <button id="detail-close" aria-label="Cerrar">×</button>
+      <div id="detail-head"></div>
+      <figure>
+        <figcaption>Lluvia diaria (mm)</figcaption>
+        <div class="chart"><canvas id="chart-daily"></canvas></div>
+      </figure>
+      <figure>
+        <figcaption>Acumulado (mm)</figcaption>
+        <div class="chart"><canvas id="chart-cum"></canvas></div>
+      </figure>
+    </div>
+    <div id="loading" class="card">Cargando datos…</div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
