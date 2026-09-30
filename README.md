@@ -34,11 +34,13 @@ Para un solo proceso, `RUN_SCHEDULER=1` arranca el planificador dentro de la API
 | Open-Meteo | ✅ funciona | no | rejilla estimada de 0,15° (435 puntos) — capa aparte, no son medidas |
 | AEMET OpenData | ✅ funciona | `AEMET_API_KEY` | 154 estaciones en las 8 provincias; diario oficial con 4 días de retraso + horario (últimas 24 h, se acumula en BD) |
 | SiAR (MAPA) | ⏳ escrito, sin probar | `SIAR_TOKEN` o `SIAR_USER`+`SIAR_PASSWORD` | 78 estaciones activas (Navarra, Zaragoza, Huesca, Teruel, Soria); no tiene en La Rioja ni Cataluña |
-| SAIH Ebro (CHE) | ❌ pendiente de decidir | ver abajo | ~330 pluviómetros de toda la cuenca |
+| SAIH Ebro (CHE) | ✅ funciona | `SAIH_API_KEY` | ~330 pluviómetros de la cuenca (Pirineo, Moncayo, Ibérica); acumulado 00–24 h cada 15 min, datos provisionales |
 
-**SAIH Ebro:** los endpoints internos que usa su web (`/api/datos-historicos/...`) dan 30 días de lluvia
-diaria de todos los pluviómetros en 3 peticiones, pero su `robots.txt` prohíbe `/api/`. La vía oficial es
-`/datos/apiopendata` con API key (registro en saihebro.com, 100 peticiones/día).
+**SAIH Ebro:** API Open Data (`/datos/apiopendata?tipo_senal=PACUM&inicio=AAAA-MM-DD`, 5 llamadas/min):
+una llamada devuelve un día entero de todos los pluviómetros. Los días cerrados se guardan en `cache/saihebro/`,
+así que tras la primera carga (~30 llamadas, unos 7 min) cada ingesta solo pide ayer y hoy. Coordenadas y
+altitud de la capa pública `SAIH_Precipitacion` del geoportal SITEbro de la CHE. No se usan los endpoints
+internos `/api/` de su web (su `robots.txt` los prohíbe).
 
 ## API
 

@@ -13,10 +13,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app import db
 from app.collectors import COLLECTORS
+from app.config import source_build
 from app.geo import PROVINCES
 
 MAX_WINDOW_DAYS = 31
 STATIC = Path(__file__).parent / "static"
+BUILD = source_build()
 
 
 
@@ -205,7 +207,7 @@ def station_series(station_id: str, days: int = Query(21, ge=1, le=MAX_WINDOW_DA
 @app.get("/api/meta")
 def meta():
     return {"provinces": list(PROVINCES.values()), "max_window_days": MAX_WINDOW_DAYS,
-            "today": date.today().isoformat()}
+            "today": date.today().isoformat(), "build": BUILD, "pid": os.getpid()}
 
 
 if STATIC.exists():

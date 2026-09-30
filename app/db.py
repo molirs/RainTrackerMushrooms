@@ -163,6 +163,9 @@ def save_result(conn: sqlite3.Connection, res: CollectorResult, day_window: str 
            WHERE observations.partial = 1 OR excluded.partial = 0""",
         [(o.station_id, o.date.isoformat(), o.precip_mm, int(o.partial), ts) for o in res.observations],
     )
+    if res.discard:
+        conn.executemany("DELETE FROM observations WHERE station_id = ? AND date = ?",
+                         [(sid, d.isoformat()) for sid, d in res.discard])
     if res.hourly:
         conn.executemany(
             "INSERT OR REPLACE INTO hourly (station_id, ts, precip_mm) VALUES (?,?,?)",

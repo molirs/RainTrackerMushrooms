@@ -3,8 +3,10 @@
     python -m app.launcher [--port 8000] [--no-browser]
 """
 import argparse
+import json
 import logging
 import os
+import signal
 import socket
 import threading
 import time
@@ -13,16 +15,39 @@ from urllib.request import urlopen
 
 import uvicorn
 
+from app.config import source_build
+
 log = logging.getLogger("launcher")
 
 
-def _is_ours(port: int) -> bool:
-    """¿Ya hay un Radar de lluvias escuchando en ese puerto?"""
+def _running_meta(port: int) -> dict | None:
+    """/api/meta del Radar de lluvias que escucha en ese puerto, o None si no hay ninguno."""
     try:
         with urlopen(f"http://127.0.0.1:{port}/api/meta", timeout=2) as r:
-            return b"max_window_days" in r.read()
+            meta = json.loads(r.read())
+        return meta if "max_window_days" in meta else None
+    except (OSError, ValueError):
+        return None
+
+
+def _is_ours(port: int) -> bool:
+    return _running_meta(port) is not None
+
+
+def _stop_outdated(port: int, meta: dict) -> bool:
+    """Cierra una instancia abierta con código anterior (p. ej. tras añadir una fuente)."""
+    pid = meta.get("pid")
+    if not pid:  # versiones sin 'pid' en /api/meta: no se puede cerrar desde aquí
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)
     except OSError:
         return False
+    for _ in range(40):
+        if _port_free(port):
+            return True
+        time.sleep(0.25)
+    return False
 
 
 def _port_free(port: int) -> bool:
@@ -47,11 +72,16 @@ def main():
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
     port = args.port
-    if _is_ours(port):
+    meta = _running_meta(port)
+    if meta and meta.get("build") == source_build():
         print(f"La app ya estaba abierta: http://localhost:{port}")
         if not args.no_browser:
             webbrowser.open(f"http://localhost:{port}")
         return
+    if meta:
+        print("Hay una versión anterior de la app abierta; la reinicio con la nueva...")
+        if not _stop_outdated(port, meta):
+            print(f"No he podido cerrarla: cierra la ventana antigua del Radar (puerto {port}).")
     while not _port_free(port):
         port += 1
 

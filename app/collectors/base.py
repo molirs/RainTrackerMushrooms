@@ -62,6 +62,8 @@ class CollectorResult:
     # Hora UTC en la que empieza el "día" al agregar los horarios (AEMET: 7, igual que su diario 07-07)
     hourly_day_start_utc: int = 0
     errors: list[str] = field(default_factory=list)
+    # (station_id, fecha) cuyo dato se ha descartado por control de calidad: se borra si ya estaba en BD
+    discard: list[tuple[str, date]] = field(default_factory=list)
 
     def rows(self):
         """Filas normalizadas: station_id, source, name, lat, lon, altitude, province, date, precip_mm."""

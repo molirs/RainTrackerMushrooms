@@ -6,6 +6,7 @@ from app import db
 from app.collectors.aemet import parse_dms as aemet_dms
 from app.collectors.base import CollectorResult, HourlyObservation, Observation, Station, to_float
 from app.collectors.inforiego import parse_dms as inforiego_dms
+from app.collectors.saihebro import daily_totals
 from app.geo import normalize_province, province_at, utm_to_latlon
 
 
@@ -145,3 +146,30 @@ def test_effective_observations_fill_gaps(tmp_path):
                         "2026-09-03": (4.0, "meteonavarra")}
         assert conn.execute("SELECT COUNT(*) FROM effective_observations WHERE station_id = 'meteonavarra:1'"
                             ).fetchone()[0] == 0
+
+
+def test_saihebro_daily_totals():
+    def r(senal, fecha, valor):
+        return {"senal": senal, "fecha": fecha, "valor": valor}
+    readings = [
+        r("P015Y84PACUM", "2026-09-29 00:00:00", 7.2),  # cierre del día anterior: no cuenta
+        r("P015Y84PACUM", "2026-09-29 00:15:00", 0.2),
+        r("P015Y84PACUM", "2026-09-29 23:45:00", 6.2),
+        r("P015Y84PACUM", "2026-09-30 00:00:00", 6.4),  # cierre del día: total definitivo
+        r("A031C84PACUM", "2026-09-29 00:00:00", 3.0),
+        r("A031C84PACUM", "2026-09-29 12:00:00", 1.4),
+        r("A031C84PACUM", "2026-09-29 12:15:00", 1.6),  # sin cierre: parcial con el máximo
+    ]
+    # Avería tipo goteo: +1,9 mm cada 15 min todo el día
+    readings += [r("A396K84PACUM", f"2026-09-29 {h:02d}:{m:02d}:00", round(1.9 * (h * 4 + m // 15), 1))
+                 for h in range(24) for m in (0, 15, 30, 45) if (h, m) != (0, 0)]
+    # Otra avería: seco hasta las 19 h y luego +5,6..6,6 mm cada 15 min
+    readings += [r("A000Z84PACUM", f"2026-09-29 {19 + k // 4:02d}:{k % 4 * 15:02d}:00", round(5.8 * k, 1))
+                 for k in range(20)]
+    # Llovizna constante de 0,2 mm cada 15 min: real, no se descarta
+    readings += [r("P099Z84PACUM", f"2026-09-29 {k // 4:02d}:{k % 4 * 15:02d}:00", round(0.2 * k, 1))
+                 for k in range(1, 96)]
+    totals, complete, suspect = daily_totals(readings, date(2026, 9, 29))
+    assert totals == {"P015": 6.4, "A031": 1.6, "P099": 19.0}
+    assert complete == {"P015"}
+    assert suspect == {"A396", "A000"}

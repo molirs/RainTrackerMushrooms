@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 
@@ -13,3 +14,11 @@ SAIH_API_KEY = os.getenv("SAIH_API_KEY", "").strip()
 
 CACHE_DIR = Path(os.getenv("CACHE_DIR", ROOT / "cache"))
 USER_AGENT = "RadarSetas/0.1 (seguimiento de lluvia para micologia; uso no comercial)"
+
+
+def source_build() -> str:
+    """Huella del código Python de la app: si cambia, una instancia ya abierta está desfasada."""
+    h = hashlib.sha1()
+    for p in sorted((ROOT / "app").rglob("*.py")):
+        h.update(p.read_bytes())
+    return h.hexdigest()[:12]
