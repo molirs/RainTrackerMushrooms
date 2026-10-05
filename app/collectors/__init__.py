@@ -5,10 +5,12 @@ from app.collectors.meteocat import MeteocatCollector
 from app.collectors.meteonavarra import MeteoNavarraCollector
 from app.collectors.open_meteo import OpenMeteoCollector
 from app.collectors.saihebro import SaihEbroCollector
+from app.collectors.saihjucar import SaihJucarCollector
 from app.collectors.siar import SiarCollector
 
 COLLECTORS = {
     c.source: c
     for c in (AemetCollector, MeteocatCollector, LaRiojaCollector, InfoRiegoCollector,
-              MeteoNavarraCollector, SiarCollector, SaihEbroCollector, OpenMeteoCollector)
+              MeteoNavarraCollector, SiarCollector, SaihEbroCollector, SaihJucarCollector,
+              OpenMeteoCollector)
 }

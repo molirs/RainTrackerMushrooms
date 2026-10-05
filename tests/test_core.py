@@ -7,6 +7,7 @@ from app.collectors.aemet import parse_dms as aemet_dms
 from app.collectors.base import CollectorResult, HourlyObservation, Observation, Station, to_float
 from app.collectors.inforiego import parse_dms as inforiego_dms
 from app.collectors.saihebro import daily_totals
+from app.collectors.saihjucar import parse_station as saihjucar_station
 from app.geo import normalize_province, province_at, utm_to_latlon
 
 
@@ -173,3 +174,12 @@ def test_saihebro_daily_totals():
     assert totals == {"P015": 6.4, "A031": 1.6, "P099": 19.0}
     assert complete == {"P015"}
     assert suspect == {"A396", "A000"}
+
+
+def test_saihjucar_station():
+    row = {"fldTCodigo": "1N04", "fldTNombre": "FREDES", "fldNCoordGPSLat": 767660.04, "fldNCoordGPSLon": 4509659.0}
+    st = saihjucar_station(row, "saihjucar")
+    assert st.station_id == "saihjucar:1N04" and st.name == "Fredes" and st.province == "Castellón"
+    assert st.lat == pytest.approx(40.70, abs=0.02) and st.lon == pytest.approx(0.17, abs=0.02)
+    # La cuenca también llega a Valencia, Cuenca, Albacete y Alicante: fuera
+    assert saihjucar_station({**row, "fldNCoordGPSLat": 722932.98, "fldNCoordGPSLon": 4396714.02}, "x") is None

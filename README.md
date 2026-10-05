@@ -1,7 +1,7 @@
 # Radar de lluvias para setas
 
 Mapa de lluvia diaria y acumulada (hasta 21 días) en Navarra, La Rioja, Soria, Zaragoza, Huesca,
-Teruel, Lleida y Tarragona. Ver `CLAUDE.md` para los requisitos.
+Teruel, Lleida, Tarragona y Castellón. Ver `CLAUDE.md` para los requisitos.
 
 ## Puesta en marcha (local)
 
@@ -20,6 +20,18 @@ python -m pytest tests
 En Windows basta con hacer doble clic en **`Radar de lluvias.bat`** (o en el acceso directo del escritorio):
 la primera vez prepara Python solo, luego arranca la web + la actualización de datos y abre el navegador.
 
+### Llevarla a otro PC (Windows)
+
+```bash
+python -m scripts.make_package      # crea dist/RadarSetas.zip (código + .env + BD y caché)
+```
+
+En el otro PC: descomprimir el zip donde se quiera (p. ej. en Documentos) y hacer doble clic en
+**`Radar de lluvias.bat`**. Si no hay Python lo instala con winget (solo para ese usuario), prepara el
+entorno, crea el acceso directo del escritorio y abre el mapa. Necesita internet la primera vez.
+`--sin-claves` deja fuera el `.env` (se copia `.env.example` a `.env` y se rellena a mano) y
+`--sin-datos` deja fuera la BD y la caché (la primera actualización tarda unos minutos más).
+
 Con Docker: `docker compose up -d --build` (servicio `web` + `worker` con la BD en un volumen).
 Para un solo proceso, `RUN_SCHEDULER=1` arranca el planificador dentro de la API.
 
@@ -32,15 +44,20 @@ Para un solo proceso, `RUN_SCHEDULER=1` arranca el planificador dentro de la API
 | InfoRiego (ITACyL) | ✅ funciona | no | 4 estaciones en Soria (CSV diario, sale ~13:30 del día siguiente) |
 | Meteo Navarra | ✅ funciona (scraping) | no | ~140 estaciones automáticas + manuales; manuales miden 08–08 h |
 | Open-Meteo | ✅ funciona | no | rejilla estimada de 0,15° (435 puntos) — capa aparte, no son medidas |
-| AEMET OpenData | ✅ funciona | `AEMET_API_KEY` | 154 estaciones en las 8 provincias; diario oficial con 4 días de retraso + horario (últimas 24 h, se acumula en BD) |
+| AEMET OpenData | ✅ funciona | `AEMET_API_KEY` | 167 estaciones en las 9 provincias (13 en Castellón); diario oficial con 4 días de retraso + horario (últimas 24 h, se acumula en BD) |
 | SiAR (MAPA) | ⏳ escrito, sin probar | `SIAR_TOKEN` o `SIAR_USER`+`SIAR_PASSWORD` | 78 estaciones activas (Navarra, Zaragoza, Huesca, Teruel, Soria); no tiene en La Rioja ni Cataluña |
 | SAIH Ebro (CHE) | ✅ funciona | `SAIH_API_KEY` | ~330 pluviómetros de la cuenca (Pirineo, Moncayo, Ibérica); acumulado 00–24 h cada 15 min, datos provisionales |
+| SAIH Júcar (CHJ) | ✅ funciona | no | 31 pluviómetros en Castellón y 20 en el sur de Teruel; diario 00–24 h, el día en curso no se publica |
 
 **SAIH Ebro:** API Open Data (`/datos/apiopendata?tipo_senal=PACUM&inicio=AAAA-MM-DD`, 5 llamadas/min):
 una llamada devuelve un día entero de todos los pluviómetros. Los días cerrados se guardan en `cache/saihebro/`,
 así que tras la primera carga (~30 llamadas, unos 7 min) cada ingesta solo pide ayer y hoy. Coordenadas y
 altitud de la capa pública `SAIH_Precipitacion` del geoportal SITEbro de la CHE. No se usan los endpoints
 internos `/api/` de su web (su `robots.txt` los prohíbe).
+
+**SAIH Júcar:** endpoint público de su mapa de lluvias, `saih.chj.es/lluviasIntervalo/AAAA-MM-DD/AAAA-MM-DD`
+(acumulado del intervalo por pluviómetro; se pide día a día). Coordenadas UTM 30N; la altitud no viene y se
+toma del DEM de Open-Meteo (cacheada en `cache/saihjucar/`).
 
 ## API
 
@@ -49,7 +66,7 @@ internos `/api/` de su web (su `robots.txt` los prohíbe).
 - `GET /api/rain/daily?days=21` — matriz estación × día (la usa el mapa para animar sin más peticiones)
 - `GET /api/stations/{id}/series?days=21` — serie diaria + acumulado
 - `GET /api/sources` — fuentes, titularidad y estado de la última actualización
-- `GET /api/provinces` — GeoJSON de las 8 provincias
+- `GET /api/provinces` — GeoJSON de las 9 provincias
 
 ## Notas técnicas
 

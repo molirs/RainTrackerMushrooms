@@ -1,4 +1,4 @@
-"""Open-Meteo: lluvia ESTIMADA (modelo) en una rejilla que cubre las 8 provincias.
+"""Open-Meteo: lluvia ESTIMADA (modelo) en una rejilla que cubre las 9 provincias.
 
 No son medidas: sirve para rellenar zonas de monte sin estaciones. Las estaciones generadas
 llevan estimated=True para que el frontend las pinte distinto.

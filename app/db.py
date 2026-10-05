@@ -19,7 +19,7 @@ MATCH_KEY_MAX_DIST_M = 3000   # comprobación de cordura al emparejar por códig
 # Menor = preferida al deduplicar (la fuente original frente a la que reenvía los datos)
 SOURCE_PRIORITY = {
     "aemet": 1, "meteocat": 1, "larioja": 1, "inforiego": 1,
-    "siar": 2, "saihebro": 2,
+    "siar": 2, "saihebro": 2, "saihjucar": 2,
     "meteonavarra": 3,
 }
 

@@ -14,10 +14,11 @@ PROVINCES = {
     "44": "Teruel",
     "25": "Lleida",
     "43": "Tarragona",
+    "12": "Castellón",
 }
 
-# Caja que envuelve las 8 provincias (lon_min, lat_min, lon_max, lat_max)
-REGION_BBOX = (-3.2, 39.8, 1.9, 43.35)
+# Caja que envuelve las 9 provincias (lon_min, lat_min, lon_max, lat_max)
+REGION_BBOX = (-3.2, 39.65, 1.9, 43.35)
 
 _ALIASES = {
     "navarra": "Navarra", "nafarroa": "Navarra",
@@ -28,6 +29,8 @@ _ALIASES = {
     "teruel": "Teruel",
     "lleida": "Lleida", "lerida": "Lleida", "lleida/lerida": "Lleida",
     "tarragona": "Tarragona",
+    "castellon": "Castellón", "castello": "Castellón", "castellon/castello": "Castellón",
+    "castello/castellon": "Castellón", "castellon de la plana": "Castellón", "castello de la plana": "Castellón",
 }
 
 
@@ -36,7 +39,7 @@ def _strip_accents(s: str) -> str:
 
 
 def normalize_province(name: str | None) -> str | None:
-    """'LERIDA', 'Lleida', 'NAVARRA' -> nombre canónico, o None si no es una de las 8."""
+    """'LERIDA', 'Lleida', 'NAVARRA' -> nombre canónico, o None si no es una de las 9."""
     if not name:
         return None
     key = _strip_accents(name).strip().lower()
@@ -68,7 +71,7 @@ def _in_ring(lon, lat, ring):
 
 
 def province_at(lat: float, lon: float) -> str | None:
-    """Provincia (de las 8) que contiene el punto, o None."""
+    """Provincia (de las 9) que contiene el punto, o None."""
     for name, polys in _province_polygons():
         for poly in polys:
             if _in_ring(lon, lat, poly[0]) and not any(_in_ring(lon, lat, hole) for hole in poly[1:]):

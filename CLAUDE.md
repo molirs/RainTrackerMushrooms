@@ -1,7 +1,7 @@
 # Radar de lluvias para setas
 
 Webapp para seguir la lluvia diaria y acumulada (hasta 21 días atrás) en las estaciones meteorológicas de
-Navarra, La Rioja, Soria, Zaragoza, Huesca, Teruel, Lleida y Tarragona, con el objetivo de saber dónde
+Navarra, La Rioja, Soria, Zaragoza, Huesca, Teruel, Lleida, Tarragona y Castellón, con el objetivo de saber dónde
 y cuándo ha llovido lo suficiente para que salgan setas.
 
 ## Funcionalidad
@@ -23,13 +23,14 @@ y cuándo ha llovido lo suficiente para que salgan setas.
 
 | Fuente | Cobertura | Acceso |
 |---|---|---|
-| AEMET OpenData | Las 8 provincias | API REST, API key gratuita. Doble llamada (la 1ª devuelve una URL `datos`). Climatologías diarias con retraso de días; para los últimos días usar observación convencional (horaria, últimas 24 h) y acumular. |
+| AEMET OpenData | Las 9 provincias | API REST, API key gratuita. Doble llamada (la 1ª devuelve una URL `datos`). Climatologías diarias con retraso de días; para los últimos días usar observación convencional (horaria, últimas 24 h) y acumular. |
 | Meteocat (XEMA) | Lleida, Tarragona | Dades Obertes (Socrata, sin key) o API REST con key. Variable de precipitación diaria acumulada. |
 | SiAR (MAPA) | Zonas de regadío de Aragón, Navarra, La Rioja, Cataluña | Web API con token (registro). Endpoint `Datos/Diarios/ESTACION`. |
 | SIAR La Rioja / SOS Rioja | La Rioja | API del Gobierno de La Rioja y dataset abierto CC BY 4.0. |
 | Meteo Navarra | Navarra (GN, INTIA, MAPA, AEMET, UPNA) | Web con sección "Descargar datos" y boletines diarios. Sin API formal: scraping respetuoso. |
 | InfoRiego (ITACyL) | Soria (Castilla y León) | Datos abiertos JCyL y FTP con datos diarios. |
 | SAIH Ebro (CHE) | Pluviómetros de toda la cuenca del Ebro | Web en tiempo real (cada 15 min) y "datos a la carta". Sin API pública documentada: investigar primero. |
+| SAIH Júcar (CHJ) | Castellón y sur de Teruel | Endpoint público de su mapa: `saih.chj.es/lluviasIntervalo/desde/hasta` (sin key). |
 | Open-Meteo | Rejilla, cualquier punto | Sin key para uso no comercial. `past_days` en la Forecast API. Solo como capa estimada. |
 
 Reglas de ingesta:
@@ -49,7 +50,7 @@ Reglas de ingesta:
 
 ## Forma de trabajar
 
-1. Primero, un script de prueba por fuente que descargue 21 días y verifique qué estaciones de las 8 provincias devuelve.
+1. Primero, un script de prueba por fuente que descargue 21 días y verifique qué estaciones de las 9 provincias devuelve.
 2. Después el modelo de datos y la ingesta.
 3. Después la API (`/stations`, `/rain?from=&to=&provinces=&sources=`).
 4. Por último el mapa y los filtros.
