@@ -55,7 +55,7 @@ cd android
 ./gradlew assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Publicar una versión: `git tag v1.2.3 && git push origin v1.2.3`. La acción `.github/workflows/android-release.yml`
+Publicar una versión: `git tag -a v1.2.3 -m "qué cambia" && git push origin v1.2.3` (el mensaje sale en el aviso de la app). La acción `.github/workflows/android-release.yml`
 compila la APK firmada y crea el Release. La clave de firma está fuera del repo (`C:\Users\steam\.radarsetas\`) y
 en los *Secrets* del repositorio: **guarda una copia**; sin ella no se pueden publicar actualizaciones instalables
 encima de la app ya instalada.

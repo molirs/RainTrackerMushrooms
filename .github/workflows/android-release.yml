@@ -1,5 +1,5 @@
 # Publica la APK al subir una etiqueta de versión:
-#   git tag v1.2.3 && git push origin v1.2.3
+#   git tag -a v1.2.3 -m "Qué cambia (sale en el aviso de la app)" && git push origin v1.2.3
 # La app, al abrirse, consulta el último Release y ofrece instalarlo si es más nuevo.
 #
 # Secrets del repositorio (Settings > Secrets and variables > Actions):
@@ -52,4 +52,4 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           APK="RadarSetas-$VERSION.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$APK"
-          gh release create "$GITHUB_REF_NAME" "$APK" --title "Radar setas $VERSION" --generate-notes
+          gh release create "$GITHUB_REF_NAME" "$APK" --title "Radar setas $VERSION" --notes-from-tag
