@@ -1,6 +1,6 @@
 # Radar de lluvias para setas
 
-Mapa de lluvia diaria y acumulada (hasta 21 días) en Navarra, La Rioja, Soria, Zaragoza, Huesca,
+Mapa de lluvia diaria y acumulada (hasta 31 días) en Navarra, La Rioja, Soria, Zaragoza, Huesca,
 Teruel, Lleida, Tarragona y Castellón. Ver `CLAUDE.md` para los requisitos.
 
 ## Puesta en marcha (local)
@@ -11,7 +11,7 @@ py -m venv .venv
 cp .env.example .env                                     # y rellena las claves que tengas
 
 python -m scripts.probe_sources            # paso 1: prueba cada fuente (21 días) sin tocar la BD
-python -m app.ingest                       # descarga 30 días de todas las fuentes a data/rain.sqlite
+python -m app.ingest                       # descarga 31 días de todas las fuentes a data/rain.sqlite
 python -m uvicorn app.main:app --reload    # http://localhost:8000
 python -m app.scheduler                    # ingesta programada (06:30 y 14:30 completa, cada 3 h rápida)
 python -m pytest tests
@@ -34,6 +34,31 @@ entorno, crea el acceso directo del escritorio y abre el mapa. Necesita internet
 
 Con Docker: `docker compose up -d --build` (servicio `web` + `worker` con la BD en un volumen).
 Para un solo proceso, `RUN_SCHEDULER=1` arranca el planificador dentro de la API.
+
+## App Android (`android/`)
+
+La APK lleva dentro el mismo Python de `app/` (con [Chaquopy](https://chaquo.com/chaquopy/)) y el mismo
+frontend de `app/static`: descarga los datos de las fuentes desde el móvil, sin servidor.
+
+- `app/mobile.py` atiende en el móvil las mismas rutas `/api/*` (lógica común en `app/api.py`) y lanza la
+  ingesta en hilos, una fuente por hilo: el mapa se va completando según termina cada una.
+- Actualiza al abrir la app (si hace más de 30 min) y cada 3 h en segundo plano (WorkManager). Repasa los 31 días
+  cada 12 h (el diario de AEMET llega con días de retraso); el resto de veces, los 3 últimos.
+- Las claves de API se meten en la propia app (panel de filtros → *Claves de API*) y se quedan en el móvil.
+- La primera descarga tarda unos 7 min (SAIH Ebro limita a 5 peticiones/minuto).
+- Al abrirse consulta el último *Release* del repositorio en GitHub y, si es más nuevo, ofrece instalarlo.
+
+Compilar en local (Android Studio instalado):
+
+```sh
+cd android
+./gradlew assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
+```
+
+Publicar una versión: `git tag v1.2.3 && git push origin v1.2.3`. La acción `.github/workflows/android-release.yml`
+compila la APK firmada y crea el Release. La clave de firma está fuera del repo (`C:\Users\steam\.radarsetas\`) y
+en los *Secrets* del repositorio: **guarda una copia**; sin ella no se pueden publicar actualizaciones instalables
+encima de la app ya instalada.
 
 ## Fuentes
 
@@ -63,8 +88,8 @@ toma del DEM de Open-Meteo (cacheada en `cache/saihjucar/`).
 
 - `GET /api/stations?provinces=&sources=&alt_min=&alt_max=&estimated=`
 - `GET /api/rain?from=&to=&days=&provinces=&sources=&alt_min=&alt_max=&min_mm=` — acumulado por estación
-- `GET /api/rain/daily?days=21` — matriz estación × día (la usa el mapa para animar sin más peticiones)
-- `GET /api/stations/{id}/series?days=21` — serie diaria + acumulado
+- `GET /api/rain/daily?days=31` — matriz estación × día (la usa el mapa para animar sin más peticiones)
+- `GET /api/stations/{id}/series?days=31` — serie diaria + acumulado
 - `GET /api/sources` — fuentes, titularidad y estado de la última actualización
 - `GET /api/provinces` — GeoJSON de las 9 provincias
 

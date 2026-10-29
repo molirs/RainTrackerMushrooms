@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Radar de lluvias para setas</title>
   <link rel="icon" href="/static/icono.ico">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -13,6 +13,7 @@
   <aside id="panel">
     <header>
       <h1>🍄 Radar de lluvias</h1>
+      <button id="refresh" class="only-app" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
       <button id="toggle-panel" class="only-mobile" aria-label="Mostrar u ocultar filtros">Filtros ▾</button>
     </header>
 
@@ -30,7 +31,7 @@
           </div>
           <div id="range-last">
             <label>Días: <output id="days-out">7</output></label>
-            <input type="range" id="days" min="1" max="21" value="7">
+            <input type="range" id="days" min="1" max="31" value="7">
           </div>
           <div id="range-custom" hidden>
             <label>Desde <input type="date" id="date-from"></label>
@@ -42,7 +43,7 @@
           <label>Día: <output id="day-out"></output></label>
           <div class="row">
             <button id="play" aria-label="Reproducir">▶</button>
-            <input type="range" id="day" min="0" max="20" value="20">
+            <input type="range" id="day" min="0" max="30" value="30">
           </div>
         </div>
       </section>
@@ -77,9 +78,28 @@
         <ol id="ranking"></ol>
       </section>
 
+      <section class="only-app">
+        <h2>Claves de API</h2>
+        <p class="hint">Se guardan solo en este móvil. Sin clave, esa fuente no se descarga.</p>
+        <form id="settings">
+          <label>AEMET <small data-key="AEMET_API_KEY"></small>
+            <input type="password" name="AEMET_API_KEY" autocomplete="off" placeholder="pegar clave"></label>
+          <label>SAIH Ebro <small data-key="SAIH_API_KEY"></small>
+            <input type="password" name="SAIH_API_KEY" autocomplete="off" placeholder="pegar clave"></label>
+          <label>SiAR (token) <small data-key="SIAR_TOKEN"></small>
+            <input type="password" name="SIAR_TOKEN" autocomplete="off" placeholder="pegar token"></label>
+          <button type="submit">Guardar claves</button>
+        </form>
+      </section>
+
       <section>
         <h2>Titularidad de los datos</h2>
         <ul id="credits"></ul>
+      </section>
+
+      <section class="only-app">
+        <h2>Aplicación</h2>
+        <div class="row"><span id="app-version"></span><button id="check-update">Buscar actualización</button></div>
       </section>
     </div>
   </aside>
@@ -100,11 +120,12 @@
       </figure>
     </div>
     <div id="loading" class="card">Cargando datos…</div>
+    <div id="sync" class="card" hidden></div>
   </main>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/vendor/chartjs/chart.umd.min.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

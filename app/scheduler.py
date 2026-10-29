@@ -1,6 +1,6 @@
 """Programación de la ingesta.
 
-- Completa (30 días, todas las fuentes) dos veces al día: a primera hora y tras las 13:30, cuando
+- Completa (31 días, todas las fuentes) dos veces al día: a primera hora y tras las 13:30, cuando
   InfoRiego publica el día anterior.
 - Rápida (3 días) cada 3 horas para el día en curso. AEMET solo da las últimas 24 h de datos
   horarios, así que conviene no espaciarla más de ~12 h.
@@ -21,7 +21,7 @@ TZ = os.getenv("TZ_SCHEDULER", "Europe/Madrid")
 
 
 def full():
-    log.info("Ingesta completa: %s", ingest.run(days=30))
+    log.info("Ingesta completa: %s", ingest.run(days=31))
 
 
 def quick():

@@ -1,5 +1,7 @@
 "use strict";
 
+const WINDOW_DAYS = 31;  // = MAX_WINDOW_DAYS de app/main.py
+
 // ---- Escala de color (CLAUDE.md: 0 mm gris -> azules -> morado para >100 mm) ----------------
 const BINS = [
   { max: 0.05, color: "#b9bfc4", label: "0" },
@@ -30,7 +32,8 @@ const data = { dates: [], series: {}, partial: {}, filled: {}, stations: [], byI
 const layers = {}; // station_id -> capa Leaflet
 
 // ---- Mapa ---------------------------------------------------------------------------------
-const map = L.map("map", { preferCanvas: true, zoomControl: true }).setView([41.9, -0.6], 8);
+// zoomSnap fino: en pantallas estrechas el zoom entero que abarca las 9 provincias se queda muy lejos
+const map = L.map("map", { preferCanvas: true, zoomControl: true, zoomSnap: 0.25 }).setView([41.9, -0.6], 8);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 17, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
@@ -43,18 +46,24 @@ async function getJSON(url) {
   return r.json();
 }
 
-async function load() {
-  const [meta, sources, provinces, stations, daily] = await Promise.all([
-    getJSON("/api/meta"), getJSON("/api/sources"), getJSON("/api/provinces"),
-    getJSON("/api/stations?estimated=true"), getJSON(`/api/rain/daily?days=21&estimated=true`),
+async function fetchData() {
+  const [sources, stations, daily] = await Promise.all([
+    getJSON("/api/sources"), getJSON("/api/stations?estimated=true"),
+    getJSON(`/api/rain/daily?days=${WINDOW_DAYS}&estimated=true`),
   ]);
   Object.assign(data, {
     dates: daily.dates, series: daily.series, partial: daily.partial, filled: daily.filled || {}, stations, sources,
+    byId: {},
   });
   stations.forEach((s) => (data.byId[s.id] = s));
+}
+
+async function load() {
+  const [meta, provinces] = await Promise.all([getJSON("/api/meta"), getJSON("/api/provinces")]);
+  await fetchData();
 
   meta.provinces.forEach((p) => state.provinces.add(p));
-  sources.filter((s) => !s.estimated).forEach((s) => state.sources.add(s.id));
+  data.sources.filter((s) => !s.estimated).forEach((s) => state.sources.add(s.id));
   state.dayIdx = data.dates.length - 1;
   state.from = data.dates[Math.max(0, data.dates.length - 7)];
   state.to = data.dates[data.dates.length - 1];
@@ -63,16 +72,14 @@ async function load() {
     style: { color: "#555", weight: 1.2, opacity: 0.7, fill: false, dashArray: "4 3" }, interactive: false,
   }).addTo(map);
   map.fitBounds(provLayer.getBounds(), { padding: [8, 8] });
-  // En el mapa, versión corta; la titularidad completa va en el panel
-  const active = sources.filter((s) => s.status?.last_success);
-  map.attributionControl.addAttribution("Datos: " + active.map((s) => esc(s.label)).join(", "));
-  $("#credits").innerHTML = active.map((s) => `<li>${esc(s.attribution)}</li>`).join("");
 
   buildControls(meta);
   buildLayers();
   buildLegend();
+  renderSourcesInfo();
   render();
   $("#loading").hidden = true;
+  if (meta.mobile) setupApp(meta);
   const linked = new URLSearchParams(location.hash.slice(1)).get("estacion");
   if (linked && data.byId[linked]) {
     const st = data.byId[linked];
@@ -109,7 +116,11 @@ function visible(st) {
 
 // ---- Capas ---------------------------------------------------------------------------------
 function buildLayers() {
+  for (const [id, layer] of Object.entries(layers)) {  // estaciones que ya no están (al recargar)
+    if (!data.byId[id]) { layer.remove(); delete layers[id]; }
+  }
   for (const st of data.stations) {
+    if (layers[st.id]) continue;
     let layer;
     if (st.estimated) {
       layer = L.rectangle(
@@ -205,17 +216,17 @@ function buildControls(meta) {
     render();
   }));
   const days = $("#days");
-  days.max = data.dates.length;
   days.addEventListener("input", () => { state.days = +days.value; $("#days-out").textContent = days.value; render(); });
 
   for (const [id, key] of [["#date-from", "from"], ["#date-to", "to"]]) {
     const el = $(id);
-    el.min = data.dates[0]; el.max = data.dates[data.dates.length - 1]; el.value = state[key];
+    el.value = state[key];
     el.addEventListener("change", () => { if (data.dates.includes(el.value)) { state[key] = el.value; render(); } });
   }
 
   const day = $("#day");
-  day.max = data.dates.length - 1; day.value = state.dayIdx;
+  updateDateControls();
+  day.value = state.dayIdx;
   day.addEventListener("input", () => { state.dayIdx = +day.value; render(); });
   $("#play").addEventListener("click", () => (state.playing ? stopPlay() : startPlay()));
 
@@ -238,14 +249,7 @@ function buildControls(meta) {
   }
   $("#threshold").addEventListener("input", (e) => { state.threshold = +e.target.value; $("#thr-out").textContent = e.target.value; render(); });
 
-  // Fuentes
-  $("#sources").innerHTML = data.sources.filter((s) => !s.estimated).map((s) => {
-    const st = s.status;
-    const info = !st ? "sin clave" : st.last_error && !st.last_success ? "error" : timeAgo(st.last_success);
-    const title = st?.last_error ? ` title="${esc(st.last_error)}"` : "";
-    return `<label class="check"${title}><input type="checkbox" data-s="${esc(s.id)}" ${st ? "checked" : "disabled"}>` +
-      `${esc(s.label)}<small>${esc(info)}</small></label>`;
-  }).join("");
+  // Fuentes (la lista se pinta en renderSourcesInfo, que se repite al recargar)
   $("#sources").addEventListener("change", (e) => {
     const s = e.target.dataset.s; if (!s) return;
     e.target.checked ? state.sources.add(s) : state.sources.delete(s);
@@ -269,6 +273,116 @@ function buildControls(meta) {
     map.invalidateSize();
   });
 }
+
+function updateDateControls() {
+  const first = data.dates[0], last = data.dates[data.dates.length - 1];
+  $("#days").max = data.dates.length;
+  for (const id of ["#date-from", "#date-to"]) { $(id).min = first; $(id).max = last; }
+  $("#day").max = data.dates.length - 1;
+}
+
+let dataAttribution = "";
+function renderSourcesInfo() {
+  $("#sources").innerHTML = data.sources.filter((s) => !s.estimated).map((s) => {
+    const st = s.status;
+    const info = !st ? "sin clave" : st.last_error && !st.last_success ? "error" : timeAgo(st.last_success);
+    const title = st?.last_error ? ` title="${esc(st.last_error)}"` : "";
+    return `<label class="check"${title}><input type="checkbox" data-s="${esc(s.id)}" ` +
+      `${!st ? "disabled" : state.sources.has(s.id) ? "checked" : ""}>${esc(s.label)}<small>${esc(info)}</small></label>`;
+  }).join("");
+  // En el mapa, versión corta; la titularidad completa va en el panel
+  const active = data.sources.filter((s) => s.status?.last_success);
+  map.attributionControl.removeAttribution(dataAttribution);
+  dataAttribution = active.length ? "Datos: " + active.map((s) => esc(s.label)).join(", ") : "";
+  map.attributionControl.addAttribution(dataAttribution);
+  $("#credits").innerHTML = active.map((s) => `<li>${esc(s.attribution)}</li>`).join("");
+}
+
+async function reloadData() {
+  const wasLast = state.dayIdx === data.dates.length - 1;
+  await fetchData();
+  if (wasLast) state.dayIdx = data.dates.length - 1;
+  updateDateControls();
+  buildLayers();
+  renderSourcesInfo();
+  render();
+}
+
+// ---- App Android: actualización en el móvil, claves de API y versión --------------------------
+const sync = { started: null, seen: new Set(), timer: null, hideTimer: null };
+
+function setupApp(meta) {
+  document.body.classList.add("app");
+  $("#app-version").textContent = `Versión ${meta.version || "?"}`;
+  $("#check-update").addEventListener("click", () => window.RadarApp?.checkForUpdates());
+  $("#refresh").addEventListener("click", async () => {
+    await fetch("/api/refresh", { method: "POST" });
+    pollSync();
+  });
+  $("#settings").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    for (const input of e.target.querySelectorAll("input")) if (input.value.trim()) params.set(input.name, input.value.trim());
+    if (![...params].length) return;
+    await fetch(`/api/settings?${params}`, { method: "POST" });
+    e.target.reset();
+    renderSettings();
+    pollSync();
+  });
+  renderSettings();
+  pollSync();
+}
+
+async function renderSettings() {
+  const st = await getJSON("/api/settings");
+  document.querySelectorAll("#settings [data-key]").forEach((el) => {
+    el.textContent = st[el.dataset.key] ? "✓ guardada" : "sin clave";
+    el.classList.toggle("ok", !!st[el.dataset.key]);
+  });
+}
+
+async function pollSync() {
+  clearTimeout(sync.timer);
+  let p;
+  try { p = await getJSON("/api/refresh"); } catch { sync.timer = setTimeout(pollSync, 5000); return; }
+  if (p.started !== sync.started) { sync.started = p.started; sync.seen.clear(); }
+  // Cada fuente que termina se pinta ya, sin esperar a las lentas (SAIH Ebro tarda minutos)
+  const finished = Object.entries(p.sources).filter(([, s]) => !["pending", "running"].includes(s.state)).map(([n]) => n);
+  const fresh = finished.filter((n) => !sync.seen.has(n));
+  fresh.forEach((n) => sync.seen.add(n));
+  if (fresh.length) await reloadData().catch(console.error);
+  showSync(p);
+  $("#refresh").classList.toggle("spin", p.running);
+  if (p.running) sync.timer = setTimeout(pollSync, 3000);
+}
+
+function showSync(p) {
+  const el = $("#sync");
+  clearTimeout(sync.hideTimer);
+  if (!Object.keys(p.sources).length) { el.hidden = true; return; }
+  const label = (id) => data.sources.find((s) => s.id === id)?.label || id;
+  const icon = { pending: "·", running: "…", done: "✓", skipped: "–", error: "⚠" };
+  const items = Object.entries(p.sources).filter(([, s]) => s.state !== "skipped")
+    .map(([n, s]) => `<span class="${s.state}" title="${esc(s.summary || "")}">${icon[s.state]} ${esc(label(n))}</span>`);
+  const empty = !data.stations.some((s) => !s.estimated);
+  el.innerHTML = `<b>${p.running ? "Actualizando datos" : "Datos actualizados"}</b>` +
+    (p.running && empty ? `<div class="hint">Primera descarga: puede tardar varios minutos.</div>` : "") +
+    `<div class="items">${items.join("")}</div>`;
+  el.hidden = false;
+  if (!p.running) sync.hideTimer = setTimeout(() => (el.hidden = true), 4000);
+}
+
+// La app Android avisa al volver a primer plano (puede haber empezado una actualización)
+window.radarResume = () => { if (document.body.classList.contains("app")) pollSync(); };
+
+// Botón "atrás" de Android: primero cierra la ficha o el panel, después sale de la app
+window.radarBack = () => {
+  if (!$("#detail").hidden) { $("#detail-close").click(); return true; }
+  if (matchMedia("(max-width: 760px)").matches && !$("#panel").classList.contains("collapsed")) {
+    $("#toggle-panel").click(); return true;
+  }
+  return false;
+};
 
 function startPlay() {
   $("#play").textContent = "❚❚"; $("#play").setAttribute("aria-label", "Pausa");
@@ -301,7 +415,7 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 async function openDetail(id) {
   const st = data.byId[id];
   const src = data.sources.find((s) => s.id === st.source);
-  const d = await getJSON(`/api/stations/${encodeURIComponent(id)}/series?days=21`);
+  const d = await getJSON(`/api/stations/${encodeURIComponent(id)}/series?days=${WINDOW_DAYS}`);
   const total = d.days[d.days.length - 1].cum_mm;
   const label = (id) => data.sources.find((s) => s.id === id)?.label || id;
   const also = d.also_in.length
@@ -314,7 +428,7 @@ async function openDetail(id) {
     `<div class="meta">${esc(src?.label || d.source)} · ${esc(d.province)}` +
     `${d.altitude != null ? ` · ${Math.round(d.altitude)} m` : ""}</div>` +
     `${d.day_window ? `<div class="meta">Día pluviométrico: ${esc(d.day_window)}</div>` : ""}${also}${filledNote}` +
-    `<div class="big">${total.toFixed(1)} mm</div><div class="meta">acumulado en los últimos 21 días</div>`;
+    `<div class="big">${total.toFixed(1)} mm</div><div class="meta">acumulado en los últimos ${d.days.length} días</div>`;
   $("#detail").hidden = false;
   history.replaceState(null, "", `#estacion=${encodeURIComponent(id)}`);
 

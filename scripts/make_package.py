@@ -20,10 +20,11 @@ NAME = "RadarSetas"
 
 
 def code_files() -> list[Path]:
-    """Ficheros del repo: versionados y nuevos no ignorados (respeta .gitignore)."""
+    """Ficheros del repo: versionados y nuevos no ignorados (respeta .gitignore). Sin la app Android,
+    que en el PC no hace falta."""
     out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
                          cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
-    files = [ROOT / p for p in out.split("\0") if p]
+    files = [ROOT / p for p in out.split("\0") if p and not p.startswith(("android/", ".github/"))]
     return [f for f in files if f.is_file() and not f.name.startswith(".git")]
 
 

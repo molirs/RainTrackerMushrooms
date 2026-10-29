@@ -1,0 +1,55 @@
+# Publica la APK al subir una etiqueta de versión:
+#   git tag v1.2.3 && git push origin v1.2.3
+# La app, al abrirse, consulta el último Release y ofrece instalarlo si es más nuevo.
+#
+# Secrets del repositorio (Settings > Secrets and variables > Actions):
+#   RELEASE_KEYSTORE_B64   keystore en base64 (siempre la misma: Android no actualiza si cambia la firma)
+#   RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+name: APK Android
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Chaquopy compila el Python de la app con la misma versión que lleva dentro
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compilar APK firmada
+        working-directory: android
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          echo "$RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          export RELEASE_KEYSTORE="$RUNNER_TEMP/release.jks"
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PappVersion="${GITHUB_REF_NAME#v}" \
+            -PgithubRepo="$GITHUB_REPOSITORY"
+          rm "$RUNNER_TEMP/release.jks"
+
+      - name: Publicar Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APK="RadarSetas-$VERSION.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+          gh release create "$GITHUB_REF_NAME" "$APK" --title "Radar setas $VERSION" --generate-notes

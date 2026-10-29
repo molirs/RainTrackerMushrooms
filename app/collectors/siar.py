@@ -13,9 +13,9 @@ import os
 import re
 from datetime import date
 
+from app import config
 from app.collectors.base import (Collector, CollectorResult, MissingCredentials, Observation,
                                  PoliteSession, Station, name_key, to_float)
-from app.config import SIAR_TOKEN
 from app.geo import normalize_province
 
 API = "https://servicio.mapa.gob.es/siarapi/API/V1"
@@ -35,8 +35,8 @@ class SiarCollector(Collector):
         self.http = session or PoliteSession(min_interval=2.5)
 
     def _token(self) -> str:
-        if SIAR_TOKEN:
-            return SIAR_TOKEN
+        if config.SIAR_TOKEN:
+            return config.SIAR_TOKEN
         user, pwd = os.getenv("SIAR_USER", "").strip(), os.getenv("SIAR_PASSWORD", "").strip()
         if not (user and pwd):
             raise MissingCredentials("Falta SIAR_TOKEN (o SIAR_USER + SIAR_PASSWORD) en .env")

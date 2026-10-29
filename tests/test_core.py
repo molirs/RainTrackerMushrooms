@@ -183,3 +183,15 @@ def test_saihjucar_station():
     assert st.lat == pytest.approx(40.70, abs=0.02) and st.lon == pytest.approx(0.17, abs=0.02)
     # La cuenca también llega a Valencia, Cuenca, Albacete y Alicante: fuera
     assert saihjucar_station({**row, "fldNCoordGPSLat": 722932.98, "fldNCoordGPSLon": 4396714.02}, "x") is None
+
+
+def test_mobile_routes(tmp_path):
+    from app import mobile
+    mobile.init(str(tmp_path), "1.0.0")
+    status, ctype, body = mobile.handle("GET", "/api/meta", "")
+    assert status == 200 and ctype == "application/json" and '"mobile": true' in body
+    assert mobile.handle("GET", "/api/rain/daily", "days=31&estimated=true")[0] == 200
+    assert mobile.handle("GET", "/api/rain", "days=40")[0] == 400
+    assert mobile.handle("GET", "/api/stations/nope/series", "")[0] == 404
+    assert mobile.handle("GET", "/api/nope", "")[0] == 404
+    assert mobile.handle("GET", "/api/provinces", "")[1] == "application/geo+json"

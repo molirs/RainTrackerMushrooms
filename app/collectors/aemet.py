@@ -13,15 +13,18 @@ import json
 import logging
 from datetime import date, datetime, timedelta, timezone
 
+import requests
+
+from app import config
 from app.collectors.base import (Collector, CollectorResult, HourlyObservation, MissingCredentials,
                                  Observation, PoliteSession, Station, to_float)
-from app.config import AEMET_API_KEY
 from app.geo import in_region_bbox, normalize_province, province_at
 
 log = logging.getLogger(__name__)
 
 BASE = "https://opendata.aemet.es/opendata/api"
 CHUNK_DAYS = 15
+DATOS_ATTEMPTS = 4
 
 
 def parse_dms(value: str) -> float:
@@ -40,7 +43,7 @@ class AemetCollector(Collector):
     required_env = ("AEMET_API_KEY",)
 
     def __init__(self, api_key: str | None = None, session: PoliteSession | None = None):
-        self.api_key = api_key if api_key is not None else AEMET_API_KEY
+        self.api_key = api_key if api_key is not None else config.AEMET_API_KEY
         # AEMET limita a ~50 peticiones/minuto por clave
         self.http = session or PoliteSession(min_interval=1.5)
 
@@ -52,9 +55,18 @@ class AemetCollector(Collector):
             return []  # "No hay datos que satisfagan esos criterios"
         if meta.get("estado") != 200 or "datos" not in meta:
             raise RuntimeError(f"AEMET {path}: {meta.get('estado')} {meta.get('descripcion')}")
-        d = self.http.get(meta["datos"])
-        d.raise_for_status()
-        return json.loads(d.content.decode("iso-8859-15"))
+        # El servidor de 'datos' corta a veces la conexión a mitad de un fichero grande (visto desde el
+        # móvil): los reintentos de la sesión solo cubren la conexión, no la lectura del cuerpo
+        for attempt in range(DATOS_ATTEMPTS):
+            try:
+                d = self.http.get(meta["datos"])
+                d.raise_for_status()
+                return json.loads(d.content.decode("iso-8859-15"))
+            except (requests.exceptions.SSLError, requests.exceptions.ConnectionError,
+                    requests.exceptions.ChunkedEncodingError) as e:
+                if attempt == DATOS_ATTEMPTS - 1:
+                    raise
+                log.warning("AEMET %s: %s; reintento %d", path, e, attempt + 1)
 
     def fetch(self, start: date, end: date) -> CollectorResult:
         if not self.api_key:

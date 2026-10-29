@@ -18,9 +18,10 @@ from datetime import date, datetime, timedelta
 
 import requests
 
+from app import config
 from app.collectors.base import (Collector, CollectorResult, MissingCredentials, Observation, PoliteSession,
                                  Station, to_float)
-from app.config import CACHE_DIR, SAIH_API_KEY
+from app.config import CACHE_DIR
 from app.geo import province_at
 
 log = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ class SaihEbroCollector(Collector):
     required_env = ("SAIH_API_KEY",)
 
     def __init__(self, api_key: str | None = None, session: PoliteSession | None = None):
-        self.api_key = api_key if api_key is not None else SAIH_API_KEY
+        self.api_key = api_key if api_key is not None else config.SAIH_API_KEY
         # 5 llamadas/minuto: una cada 13 s deja margen
         self.http = session or PoliteSession(min_interval=13, retries=2)
         self.geo = PoliteSession(min_interval=1.0)

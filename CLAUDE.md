@@ -1,6 +1,6 @@
 # Radar de lluvias para setas
 
-Webapp para seguir la lluvia diaria y acumulada (hasta 21 días atrás) en las estaciones meteorológicas de
+Webapp para seguir la lluvia diaria y acumulada (hasta 31 días atrás) en las estaciones meteorológicas de
 Navarra, La Rioja, Soria, Zaragoza, Huesca, Teruel, Lleida, Tarragona y Castellón, con el objetivo de saber dónde
 y cuándo ha llovido lo suficiente para que salgan setas.
 
@@ -9,12 +9,12 @@ y cuándo ha llovido lo suficiente para que salgan setas.
 - Mapa interactivo (Leaflet + OpenStreetMap) con cada estación como un círculo coloreado según los mm.
 - Escala de color de lluvia (0 mm gris → azules → morado para >100 mm), con leyenda.
 - Filtros:
-  - Rango de días: acumulado de los últimos N días (1–21) o un intervalo de fechas concreto.
+  - Rango de días: acumulado de los últimos N días (1–31) o un intervalo de fechas concreto.
   - "Cuándo llovió": ver un día concreto y animar día a día con un slider (play/pausa).
   - Provincia (multiselección) y red/fuente de datos.
   - Altitud mínima/máxima de la estación (las setas dependen mucho de la cota).
   - Umbral mínimo de mm para destacar zonas.
-- Al hacer clic en una estación: nombre, fuente, altitud, gráfico de barras de lluvia diaria de los 21 días
+- Al hacer clic en una estación: nombre, fuente, altitud, gráfico de barras de lluvia diaria de los 31 días
   y línea de acumulado.
 - Capa opcional de lluvia estimada en rejilla (Open-Meteo) para rellenar zonas de monte sin estaciones.
   Debe distinguirse visualmente de los datos medidos.
@@ -47,6 +47,9 @@ Reglas de ingesta:
 - Frontend: HTML + Leaflet + Chart.js (o HTMX), sin build complicado.
 - Claves en `.env` (nunca en el repo): `AEMET_API_KEY`, `METEOCAT_API_KEY`, `SIAR_TOKEN`.
 - Todo en Docker Compose para desplegar en un servidor.
+- App Android (`android/`): el mismo Python de `app/` dentro de la APK (Chaquopy) y el mismo frontend; la ingesta
+  corre en el móvil. La lógica de la API va en `app/api.py` (sin FastAPI) para que la compartan servidor y móvil.
+  Versiones: etiqueta `vX.Y.Z` → GitHub Actions publica el Release y la app lo ofrece al abrirse.
 
 ## Forma de trabajar
 
