@@ -6,6 +6,7 @@ se registra el error y el resto continúa.
 """
 import argparse
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 from app import db
@@ -50,7 +51,11 @@ def finish() -> str:
 def run(sources: list[str] | None = None, days: int = 31) -> dict[str, str]:
     end = date.today()
     start = end - timedelta(days=days - 1)
-    summary = {name: run_source(name, start, end) for name in sources or list(COLLECTORS)}
+    names = sources or list(COLLECTORS)
+    # En paralelo (son servidores distintos): acaba antes y, si se cierra la app a mitad, no se
+    # quedan sin intentar las últimas fuentes de la lista
+    with ThreadPoolExecutor(max_workers=len(names)) as pool:
+        summary = dict(zip(names, pool.map(lambda n: run_source(n, start, end), names)))
     summary["_dedup"] = finish()
     return summary
 
