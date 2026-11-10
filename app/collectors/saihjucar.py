@@ -8,6 +8,9 @@ Sin clave. Es el endpoint público que usa su propio mapa de lluvias (saih.chj.e
   solo se cachean en disco los días cerrados.
 - Coordenadas en UTM 30N ETRS89, con los nombres cambiados: X en 'fldNCoordGPSLat' e Y en 'fldNCoordGPSLon'.
 - No da altitud: se pide una vez a la API de elevación de Open-Meteo (DEM de 90 m) y se cachea.
+- Desde nov. 2026 un cortafuegos (F5) responde "Request Rejected" (HTML con estado 200) si la petición no
+  trae su cookie TS…, que solo entrega al pedir una página con 'Accept: text/html'. Se carga el mapa
+  una vez por sesión, como haría el navegador, y se repite si la cookie caduca.
 """
 import json
 import logging
@@ -22,6 +25,7 @@ log = logging.getLogger(__name__)
 BASE = "https://saih.chj.es"
 ELEVATION_URL = "https://api.open-meteo.com/v1/elevation"
 CACHE = CACHE_DIR / "saihjucar"
+MAP_PAGE = f"{BASE}/mapa-lluvias"
 
 
 def parse_station(row: dict, source: str) -> Station | None:
@@ -46,11 +50,31 @@ class SaihJucarCollector(Collector):
 
     def __init__(self, session: PoliteSession | None = None):
         self.http = session or PoliteSession(min_interval=2.0)
+        self._has_cookie = False
+
+    def _get_cookie(self) -> None:
+        """Visita el mapa para que el cortafuegos dé su cookie (queda en la sesión)."""
+        r = self.http.get(MAP_PAGE, headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                                             "Accept-Language": "es-ES,es;q=0.9"})
+        r.raise_for_status()
+        if "Request Rejected" in r.text[:500]:
+            raise RuntimeError("el cortafuegos de saih.chj.es rechaza también la página del mapa")
+        self._has_cookie = True
 
     def _fetch_day(self, day: date) -> list[dict]:
-        r = self.http.get(f"{BASE}/lluviasIntervalo/{day.isoformat()}/{day.isoformat()}")
+        url = f"{BASE}/lluviasIntervalo/{day.isoformat()}/{day.isoformat()}"
+        headers = {"Accept": "application/json, */*", "Referer": MAP_PAGE}
+        if not self._has_cookie:
+            self._get_cookie()
+        r = self.http.get(url, headers=headers)
+        if "Request Rejected" in r.text[:500]:  # cookie caducada: renovarla una vez
+            self._get_cookie()
+            r = self.http.get(url, headers=headers)
         r.raise_for_status()
-        data = r.json()
+        try:
+            data = r.json()
+        except ValueError:
+            raise RuntimeError(f"SAIH Júcar {day}: respuesta no JSON: {r.text[:120]!r}") from None
         if not isinstance(data, list):
             raise RuntimeError(f"SAIH Júcar {day}: {str(data)[:200]}")
         return data
