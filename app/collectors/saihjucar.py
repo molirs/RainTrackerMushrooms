@@ -11,6 +11,9 @@ Sin clave. Es el endpoint público que usa su propio mapa de lluvias (saih.chj.e
 - Desde nov. 2026 un cortafuegos (F5) responde "Request Rejected" (HTML con estado 200) si la petición no
   trae su cookie TS…, que solo entrega al pedir una página con 'Accept: text/html'. Se carga el mapa
   una vez por sesión, como haría el navegador, y se repite si la cookie caduca.
+- Desde el 10-11-2026 además redirige a /verificar, una comprobación Cloudflare Turnstile (anti-bots) que
+  exige un navegador real. No se intenta saltar: se detecta, se aborta al primer intento (sin martillear)
+  y queda registrado como error de la fuente. El resto de fuentes sigue funcionando.
 """
 import json
 import logging
@@ -26,6 +29,14 @@ BASE = "https://saih.chj.es"
 ELEVATION_URL = "https://api.open-meteo.com/v1/elevation"
 CACHE = CACHE_DIR / "saihjucar"
 MAP_PAGE = f"{BASE}/mapa-lluvias"
+
+
+class BotCheckBlocked(RuntimeError):
+    """La web exige una verificación anti-bots (Turnstile) que un cliente automático no debe saltar."""
+
+
+def _is_bot_check(r) -> bool:
+    return "/verificar" in r.url or "cf-turnstile" in r.text[:5000]
 
 
 def parse_station(row: dict, source: str) -> Station | None:
@@ -57,6 +68,9 @@ class SaihJucarCollector(Collector):
         r = self.http.get(MAP_PAGE, headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
                                              "Accept-Language": "es-ES,es;q=0.9"})
         r.raise_for_status()
+        if _is_bot_check(r):
+            raise BotCheckBlocked("saih.chj.es exige ahora una verificación anti-bots (Cloudflare Turnstile) "
+                                  "para acceder a sus datos; la fuente queda sin actualizar")
         if "Request Rejected" in r.text[:500]:
             raise RuntimeError("el cortafuegos de saih.chj.es rechaza también la página del mapa")
         self._has_cookie = True
@@ -118,6 +132,8 @@ class SaihJucarCollector(Collector):
         while day >= start:
             try:
                 rows = self._day(day, today)
+            except BotCheckBlocked:
+                raise  # bloquea todos los días: no tiene sentido seguir pidiendo
             except Exception as e:  # noqa: BLE001 - un día fallido no tumba el resto
                 res.errors.append(f"{day}: {e}")
                 log.warning("SAIH Júcar %s: %s", day, e)
