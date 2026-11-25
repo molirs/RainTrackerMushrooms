@@ -176,7 +176,8 @@ def save_result(conn: sqlite3.Connection, res: CollectorResult, day_window: str 
 
 
 def _rebuild_from_hourly(conn: sqlite3.Connection, station_ids: set[str], ts: str, day_start_utc: int = 0):
-    """Rehace los días parciales sumando los horarios guardados (solo donde no hay dato definitivo).
+    """Rehace los días parciales sumando los horarios guardados (solo donde no hay otro dato diario,
+    ni definitivo ni provisional: un resumen diario de 24 h completo vale más que unas horas sueltas).
     El día D va de D day_start_utc:00 a D+1 day_start_utc:00 UTC (AEMET: 07-07, como su diario)."""
     conn.execute("CREATE TEMP TABLE IF NOT EXISTS _ids (station_id TEXT PRIMARY KEY)")
     conn.execute("DELETE FROM _ids")
@@ -192,9 +193,7 @@ def _rebuild_from_hourly(conn: sqlite3.Connection, station_ids: set[str], ts: st
            FROM hourly h JOIN _ids USING (station_id)
            WHERE true
            GROUP BY h.station_id, d
-           ON CONFLICT(station_id, date) DO UPDATE SET
-             precip_mm=excluded.precip_mm, from_hourly=1, updated_at=excluded.updated_at
-           WHERE observations.partial = 1""",
+           ON CONFLICT(station_id, date) DO NOTHING""",
         (shift, ts),
     )
 

@@ -97,6 +97,21 @@ def test_hourly_aemet_window_07_07(tmp_path):
         assert rows == {"2026-09-01": 1.0, "2026-09-02": 6.5, "2026-09-03": 9.0}
 
 
+def test_daily_summary_beats_hourly_and_yields_to_climatology(tmp_path):
+    """Un resumen diario provisional (24 h) no lo pisan unas horas sueltas, y la climatología sí lo pisa."""
+    d = date(2026, 9, 2)
+    h = HourlyObservation("aemet:1", "aemet", datetime(2026, 9, 2, 12, tzinfo=timezone.utc), 1.0)
+    with db.session(tmp_path / "t.sqlite") as conn:
+        db.save_result(conn, CollectorResult("aemet", [_station("aemet:1", "aemet")], hourly=[h],
+                                             hourly_day_start_utc=7))
+        db.save_result(conn, CollectorResult("aemet", [], [Observation("aemet:1", "aemet", d, 8.0, partial=True)],
+                                             hourly=[h], hourly_day_start_utc=7))
+        get = "SELECT precip_mm, partial, from_hourly FROM observations WHERE date = '2026-09-02'"
+        assert tuple(conn.execute(get).fetchone()) == (8.0, 1, 0)
+        db.save_result(conn, CollectorResult("aemet", [], [Observation("aemet:1", "aemet", d, 7.5)]))
+        assert tuple(conn.execute(get).fetchone()) == (7.5, 0, 0)
+
+
 def test_rebuild_drops_stale_partial_days(tmp_path):
     """Si cambia la ventana de agregación, no quedan días parciales huérfanos de la anterior."""
     with db.session(tmp_path / "t.sqlite") as conn:
